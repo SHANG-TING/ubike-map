@@ -1,32 +1,61 @@
-import { Component } from '@angular/core';
+import { Component, AfterViewInit, OnInit } from '@angular/core';
+import { FormBuilder } from '@angular/forms';
+import L from 'leaflet';
+import { UBikeService } from './ubike';
+import cityName from '../assets/cityName.json';
 
 @Component({
   selector: 'app-root',
-  template: `
-    <!--The content below is only a placeholder and can be replaced.-->
-    <div style="text-align:center" class="content">
-      <h1>
-        Welcome to {{title}}!
-      </h1>
-      <span style="display: block">{{ title }} app is running!</span>
-      <img width="300" alt="Angular Logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTAgMjUwIj4KICAgIDxwYXRoIGZpbGw9IiNERDAwMzEiIGQ9Ik0xMjUgMzBMMzEuOSA2My4ybDE0LjIgMTIzLjFMMTI1IDIzMGw3OC45LTQzLjcgMTQuMi0xMjMuMXoiIC8+CiAgICA8cGF0aCBmaWxsPSIjQzMwMDJGIiBkPSJNMTI1IDMwdjIyLjItLjFWMjMwbDc4LjktNDMuNyAxNC4yLTEyMy4xTDEyNSAzMHoiIC8+CiAgICA8cGF0aCAgZmlsbD0iI0ZGRkZGRiIgZD0iTTEyNSA1Mi4xTDY2LjggMTgyLjZoMjEuN2wxMS43LTI5LjJoNDkuNGwxMS43IDI5LjJIMTgzTDEyNSA1Mi4xem0xNyA4My4zaC0zNGwxNy00MC45IDE3IDQwLjl6IiAvPgogIDwvc3ZnPg==">
-    </div>
-    <h2>Here are some links to help you start: </h2>
-    <ul>
-      <li>
-        <h2><a target="_blank" rel="noopener" href="https://angular.io/tutorial">Tour of Heroes</a></h2>
-      </li>
-      <li>
-        <h2><a target="_blank" rel="noopener" href="https://angular.io/cli">CLI Documentation</a></h2>
-      </li>
-      <li>
-        <h2><a target="_blank" rel="noopener" href="https://blog.angular.io/">Angular blog</a></h2>
-      </li>
-    </ul>
-    
-  `,
-  styles: []
+  templateUrl: './app.component.html',
 })
-export class AppComponent {
-  title = 'ubike-map';
+export class AppComponent implements OnInit, AfterViewInit {
+  OSMap: L.Map;
+  form = this.fb.group({
+    city: [null],
+    dist: [null],
+  });
+
+  readonly cityName = cityName;
+
+  constructor(private fb: FormBuilder, private ubikeService: UBikeService) {}
+
+  ngOnInit() {
+    this.form.get('dist').valueChanges.subscribe(({ latitude, longitude, name }) => {
+      this.OSMap.panTo([latitude, longitude]);
+
+      this.OSMap.eachLayer((layer) => {
+        if (layer instanceof L.Marker) {
+          this.OSMap.removeLayer(layer);
+        }
+      });
+
+      for (const ubike of this.ubikeService.data) {
+        if (ubike.sarea !== name) {
+          continue;
+        }
+
+        L.marker([+ubike.lat, +ubike.lng])
+          .bindPopup(
+            `<p><strong style="font-size: 20px;">${ubike.sna}</strong></p>
+        <strong style="font-size: 16px; color: #d45345;">可租借車輛剩餘：${ubike.sbi} 台</strong><br>
+        可停空位剩餘: ${ubike.bemp}<br>
+        <small>最後更新時間: ${ubike.mday}</small>`,
+          )
+          .addTo(this.OSMap);
+      }
+    });
+  }
+
+  ngAfterViewInit() {
+    this.OSMap = L.map('mapid', {
+      center: [25.041956, 121.508791],
+      zoom: 13,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+      maxZoom: 18,
+    }).addTo(this.OSMap);
+  }
 }
